@@ -1465,30 +1465,58 @@
 
 
 
-    function ActionMenu({ items }) {
+        function ActionMenu({ items }) {
       const [open, setOpen] = useState(false);
-      const ref = useRef(null);
+      const [coords, setCoords] = useState({ top: 0, left: 0 });
+      const btnRef = useRef(null);
+      const menuRef = useRef(null);
+
+      const updatePosition = () => {
+        if (!btnRef.current) return;
+        const rect = btnRef.current.getBoundingClientRect();
+        const menuWidth = 180;
+        let left = rect.right - menuWidth;
+        if (left < 4) left = 4;
+        if (left + menuWidth > window.innerWidth - 4) left = window.innerWidth - menuWidth - 4;
+        let top = rect.bottom + 4;
+        setCoords({ top, left });
+      };
 
       useEffect(() => {
         if (!open) return;
-        const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        updatePosition();
+        const onDocClick = (e) => {
+          if (
+            (btnRef.current && btnRef.current.contains(e.target)) ||
+            (menuRef.current && menuRef.current.contains(e.target))
+          ) return;
+          setOpen(false);
+        };
         document.addEventListener("mousedown", onDocClick);
-        return () => document.removeEventListener("mousedown", onDocClick);
+        window.addEventListener("scroll", updatePosition, true);
+        window.addEventListener("resize", updatePosition);
+        return () => {
+          document.removeEventListener("mousedown", onDocClick);
+          window.removeEventListener("scroll", updatePosition, true);
+          window.removeEventListener("resize", updatePosition);
+        };
       }, [open]);
 
       return (
-        <div className="relative shrink-0" ref={ref}>
+        <div className="relative shrink-0">
           <button
+            ref={btnRef}
             onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
             title="Amallar"
             className="p-2 rounded-lg hover:bg-black/5"
           >
             <Icon name="ellipsis-vertical" size={15} style={{ color: C.mutedSoft }} />
           </button>
-          {open && (
+          {open && ReactDOM.createPortal(
             <div
-              className="absolute right-0 top-full mt-1 z-20 rounded-lg overflow-hidden shadow-lg py-1 whitespace-nowrap"
-              style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, minWidth: 180 }}
+              ref={menuRef}
+              className="fixed rounded-lg overflow-hidden shadow-lg py-1 whitespace-nowrap"
+              style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, minWidth: 180, top: coords.top, left: coords.left, zIndex: 9999 }}
             >
               {items.map((it, i) => (
                 <button
@@ -1501,7 +1529,8 @@
                   {it.label}
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       );
