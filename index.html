@@ -5646,6 +5646,8 @@
        STUDENT DASHBOARD
        ============================================================ */
     function StudentOverview({ student, group, exams, assignments, results, onGoExams, onGoAssignments }) {
+      const { theme } = useContext(ThemeContext);
+      const dark = theme === "dark";
       const myExams = exams.filter((e) => e.status === "on" && e.assignedGroupIds.includes(student.groupId));
       const myResults = results.filter((r) => r.studentId === student.id);
       const avg = myResults.filter((r) => r.overallBand != null);
@@ -5655,20 +5657,20 @@
 
       return (
         <div className="space-y-6">
-          <Card className="flex flex-col md:flex-row items-center gap-6" style={{ backgroundColor: "#e8933c" }}>
+          <Card className="flex flex-col md:flex-row items-center gap-6" style={{ backgroundColor: dark ? "#e8933c" : C.ink }}>
             <div>
-              <div className="text-[13px]" style={{ color: "#12161f", opacity: 0.7 }}>Xush kelibsiz,</div>
-              <div className="f-display text-[24px] font-semibold" style={{ color: "#12161f" }}>{student.name}</div>
-              <div className="text-[12.5px] mt-1" style={{ color: "#12161f", opacity: 0.6 }}>{group?.name}</div>
+              <div className={dark ? "text-[13px]" : "text-[13px] text-white/60"} style={dark ? { color: "#12161f", opacity: 0.7 } : {}}>Xush kelibsiz,</div>
+              <div className={dark ? "f-display text-[24px] font-semibold" : "f-display text-[24px] font-semibold text-white"} style={dark ? { color: "#12161f" } : {}}>{student.name}</div>
+              <div className={dark ? "text-[12.5px] mt-1" : "text-[12.5px] text-white/50 mt-1"} style={dark ? { color: "#12161f", opacity: 0.6 } : {}}>{group?.name}</div>
             </div>
             <div className="md:ml-auto flex gap-6">
               <div className="text-center">
-                <div className="f-mono text-[26px] font-bold" style={{ color: "#12161f" }}>{myExams.length}</div>
-                <div className="text-[11px]" style={{ color: "#12161f", opacity: 0.6 }}>Faol exam</div>
+                <div className={dark ? "f-mono text-[26px] font-bold" : "f-mono text-[26px] font-bold text-white"} style={dark ? { color: "#12161f" } : {}}>{myExams.length}</div>
+                <div className={dark ? "text-[11px]" : "text-[11px] text-white/50"} style={dark ? { color: "#12161f", opacity: 0.6 } : {}}>Faol exam</div>
               </div>
               <div className="text-center">
-                <div className="f-mono text-[26px] font-bold" style={{ color: "#12161f" }}>{unseen.length}</div>
-                <div className="text-[11px]" style={{ color: "#12161f", opacity: 0.6 }}>Yangi vazifa</div>
+                <div className="f-mono text-[26px] font-bold" style={{ color: dark ? "#12161f" : C.gold }}>{unseen.length}</div>
+                <div className={dark ? "text-[11px]" : "text-[11px] text-white/50"} style={dark ? { color: "#12161f", opacity: 0.6 } : {}}>Yangi vazifa</div>
               </div>
             </div>
           </Card>
@@ -7129,35 +7131,57 @@
          cheklanadi (get_queryset), shu sabab bu yerda alohida orgId filtri
          shart emas — lekin pastdagi "scopedData" qo'shimcha himoya sifatida
          baribir saqlab qolinadi. */
+      /* refreshData(silent): asosiy ma'lumotlarni backend'dan qayta yuklaydi.
+         silent=true bo'lsa "ready" holatini o'zgartirmaydi (fon jarayonida,
+         foydalanuvchiga sezilmasdan) — buni pastdagi polling effekti
+         ishlatadi, shunda yangi xabar/vazifa/mock kelganda foydalanuvchi
+         sahifani qo'lda yangilamasa ham bir necha soniya ichida ko'rinadi. */
+      const refreshData = async (silent) => {
+        if (!silent) setReady(false);
+        try {
+          const isSupport = session.role === "support";
+          const [groups, students, exams, assignments, results, staff, tickets, msgs] = await Promise.all([
+            groupApi.list().catch(() => []),
+            studentApi.list().catch(() => []),
+            examApi.list().catch(() => []),
+            assignmentApi.list().catch(() => []),
+            resultApi.list().catch(() => []),
+            staffApi.list().catch(() => []),
+            ticketApi.list().catch(() => []),
+            messageApi.list().catch(() => []),
+          ]);
+          setData({ groups, students, exams, assignments, results });
+          setOrgStaff(staff);
+          setSupportTickets(tickets);
+          setMessages(msgs);
+          if (isSupport) {
+            try { setOrganizations(await orgApi.list()); } catch (e) { }
+          }
+        } catch (e) {
+          if (!silent) toast("error", e.message || "Ma'lumotlar yuklanmadi");
+        } finally {
+          if (!silent) setReady(true);
+        }
+      };
+
       useEffect(() => {
         if (!session) { setReady(true); return; }
-        setReady(false);
-        (async () => {
-          try {
-            const isSupport = session.role === "support";
-            const [groups, students, exams, assignments, results, staff, tickets, msgs] = await Promise.all([
-              groupApi.list().catch(() => []),
-              studentApi.list().catch(() => []),
-              examApi.list().catch(() => []),
-              assignmentApi.list().catch(() => []),
-              resultApi.list().catch(() => []),
-              staffApi.list().catch(() => []),
-              ticketApi.list().catch(() => []),
-              messageApi.list().catch(() => []),
-            ]);
-            setData({ groups, students, exams, assignments, results });
-            setOrgStaff(staff);
-            setSupportTickets(tickets);
-            setMessages(msgs);
-            if (isSupport) {
-              try { setOrganizations(await orgApi.list()); } catch (e) { }
-            }
-          } catch (e) {
-            toast("error", e.message || "Ma'lumotlar yuklanmadi");
-          } finally {
-            setReady(true);
-          }
-        })();
+        refreshData(false);
+      }, [session?.role, session?.orgId]); // eslint-disable-line
+
+      /* Fon jarayonida davriy yangilanish (polling) — o'qituvchi/CEO/support
+         yangi xabar, vazifa yoki mock yuborganda, qabul qiluvchi tomon
+         sahifani qo'lda yangilamasa ham bir necha soniya ichida ko'rinishi
+         uchun. Hozircha backend'da WebSocket/Channels infratuzilmasi yo'q,
+         shu sabab eng oddiy va ishonchli yechim — har 15 soniyada jimgina
+         qayta so'rash ("ready"ni o'zgartirmasdan, ekran miltillamasin). */
+      useEffect(() => {
+        if (!session) return;
+        const interval = setInterval(() => {
+          refreshData(true);
+          messageApi.unread().then(setUnreadMsg).catch(() => {});
+        }, 15000);
+        return () => clearInterval(interval);
       }, [session?.role, session?.orgId]); // eslint-disable-line
 
       /* CEO/Admin/Manager/Teacher/Student dashboard ochilganda — hali javob
