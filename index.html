@@ -5655,20 +5655,20 @@
 
       return (
         <div className="space-y-6">
-          <Card className="flex flex-col md:flex-row items-center gap-6" style={{ backgroundColor: C.ink }}>
+          <Card className="flex flex-col md:flex-row items-center gap-6" style={{ backgroundColor: "#e8933c" }}>
             <div>
-              <div className="text-[13px] text-white/60">Xush kelibsiz,</div>
-              <div className="f-display text-[24px] font-semibold text-white">{student.name}</div>
-              <div className="text-[12.5px] text-white/50 mt-1">{group?.name}</div>
+              <div className="text-[13px]" style={{ color: "#12161f", opacity: 0.7 }}>Xush kelibsiz,</div>
+              <div className="f-display text-[24px] font-semibold" style={{ color: "#12161f" }}>{student.name}</div>
+              <div className="text-[12.5px] mt-1" style={{ color: "#12161f", opacity: 0.6 }}>{group?.name}</div>
             </div>
             <div className="md:ml-auto flex gap-6">
               <div className="text-center">
-                <div className="f-mono text-[26px] font-bold text-white">{myExams.length}</div>
-                <div className="text-[11px] text-white/50">Faol exam</div>
+                <div className="f-mono text-[26px] font-bold" style={{ color: "#12161f" }}>{myExams.length}</div>
+                <div className="text-[11px]" style={{ color: "#12161f", opacity: 0.6 }}>Faol exam</div>
               </div>
               <div className="text-center">
-                <div className="f-mono text-[26px] font-bold" style={{ color: C.gold }}>{unseen.length}</div>
-                <div className="text-[11px] text-white/50">Yangi vazifa</div>
+                <div className="f-mono text-[26px] font-bold" style={{ color: "#12161f" }}>{unseen.length}</div>
+                <div className="text-[11px]" style={{ color: "#12161f", opacity: 0.6 }}>Yangi vazifa</div>
               </div>
             </div>
           </Card>
