@@ -7013,7 +7013,7 @@
           telegramChatId: rawOrg.telegram_chat_id || "",
           status: rawOrg.status || "active",
         } : null;
-        return { ...u, theme: u.theme === "dark" ? "dark" : "light", sidebarCollapsed: !!u.sidebar_collapsed, organizationDetail };
+        return { ...u, theme: u.theme === "dark" ? "dark" : "light", sidebarCollapsed: !!u.sidebar_collapsed, organizationDetail, groupId: u.group_id != null ? u.group_id : (u.group || null), };
       }
 
       // Sahifa yangilanganda (F5) tizimdan chiqib ketmaslik uchun:
