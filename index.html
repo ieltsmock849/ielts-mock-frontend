@@ -430,6 +430,78 @@
     };
 
     /* ============================================================
+       REAL-TIME (WebSocket) — xabar/mock exam/vazifa/notification'lar
+       refreshsiz, darhol ko'rinishi uchun.
+       ------------------------------------------------------------
+       Backend'dagi /ws/notifications/ kanaliga xuddi shu JWT access
+       token bilan ulanadi (query-string orqali — brauzer WebSocket
+       handshake'ga maxsus header qo'sha olmaydi). Ulanish uzilib qolsa
+       (tarmoq, backend qayta ishga tushishi va h.k.) eksponensial orqaga
+       chekinish bilan avtomatik qayta ulanadi. Bir nechta tab ochilganda
+       — har biri o'z WS ulanishiga ega, lekin barchasi bir xil backend
+       group'idan bir xil event'larni oladi, shu sabab barcha tablar bir
+       vaqtda sinxron yangilanadi.
+
+       useRealtime(session, handlers) — `handlers` obyekti backend
+       yuboradigan event nomlariga mos: { new_message: (payload) => {...},
+       new_exam: (payload) => {...}, ... }. Har bir render'da `handlers`
+       qayta yaratilishi WS ulanishini qayta ochmaydi (ref orqali eng
+       so'nggi versiyasi ishlatiladi) — faqat sessiya (rol/foydalanuvchi)
+       o'zgarganda ulanish qayta o'rnatiladi.
+       ============================================================ */
+    const WS_BASE_URL = API_BASE_URL.replace(/^http/, "ws");
+
+    function useRealtime(session, handlers) {
+      const handlersRef = useRef(handlers);
+      handlersRef.current = handlers;
+
+      useEffect(() => {
+        if (!session) return undefined;
+
+        let socket = null;
+        let reconnectTimer = null;
+        let reconnectDelay = 1000;
+        let stopped = false;
+
+        function connect() {
+          const token = tokenStore.getAccess();
+          if (!token || stopped) return;
+
+          socket = new WebSocket(`${WS_BASE_URL}/ws/notifications/?token=${encodeURIComponent(token)}`);
+
+          socket.onopen = () => { reconnectDelay = 1000; };
+
+          socket.onmessage = (evt) => {
+            let msg;
+            try { msg = JSON.parse(evt.data); } catch (e) { return; }
+            const handler = msg && handlersRef.current[msg.event];
+            if (handler) handler(msg.payload);
+          };
+
+          socket.onclose = () => {
+            if (stopped) return;
+            reconnectTimer = setTimeout(connect, reconnectDelay);
+            reconnectDelay = Math.min(reconnectDelay * 2, 15000);
+          };
+
+          socket.onerror = () => {
+            // onclose baribir chaqiriladi — shu yerda faqat ulanishni yopamiz.
+            try { socket.close(); } catch (e) { }
+          };
+        }
+
+        connect();
+
+        return () => {
+          stopped = true;
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          if (socket) socket.close();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [session?.role, session?.user?.id]);
+    }
+
+    /* ============================================================
        PREFERENCES API — theme va sidebar holati (avval localStorage'da
        edi) endi shu orqali to'g'ridan-to'g'ri foydalanuvchi profiliga
        (backend/Postgres) saqlanadi.
@@ -7196,6 +7268,50 @@
           } catch (e) { /* jim o'tkazamiz — asosiy funksiyaga xalaqit bermasin */ }
         })();
       }, [session?.role, session?.orgId]); // eslint-disable-line
+
+      /* ============================================================
+         REAL-TIME (WebSocket) — backend'dan kelgan har bir event mos
+         state'ga to'g'ridan-to'g'ri (fetch qilmasdan) qo'shiladi/
+         yangilanadi, shu sabab yangi xabar/mock exam/vazifa/murojaat
+         darhol — refreshsiz — ko'rinadi. Sidebar/Dashboard'dagi
+         bildirishnoma badge'lari (notifCount, unseenCount va h.k.)
+         shu state'lardan hisoblanadi, shuning uchun ular ham avtomatik
+         yangilanadi — foydalanuvchi boshqa sahifada/tab'da bo'lsa ham. */
+      function upsertById(list, item) {
+        const exists = list.some((x) => x.id === item.id);
+        return exists ? list.map((x) => (x.id === item.id ? item : x)) : [item, ...list];
+      }
+      useRealtime(session, {
+        new_message: (payload) => {
+          const m = messageFromApi(payload);
+          setMessages((prev) => upsertById(prev, m));
+          setUnreadMsg((u) => u || m);
+          toast("info", `Yangi xabar: ${m.senderName || ""}`);
+        },
+        message_status_updated: (payload) => {
+          const m = messageFromApi(payload);
+          setMessages((prev) => upsertById(prev, m));
+        },
+        new_support_ticket: (payload) => {
+          const t = ticketFromApi(payload);
+          setSupportTickets((prev) => upsertById(prev, t));
+          if (session?.role === "support") toast("info", `Yangi murojaat: ${t.userName || ""}`);
+        },
+        ticket_seen: (payload) => {
+          const t = ticketFromApi(payload);
+          setSupportTickets((prev) => upsertById(prev, t));
+        },
+        new_exam: (payload) => {
+          const ex = examFromApi(payload);
+          setData((d) => ({ ...d, exams: upsertById(d.exams, ex) }));
+          if (session?.role === "student") toast("info", `Yangi mock exam: ${ex.title || ""}`);
+        },
+        new_assignment: (payload) => {
+          const a = assignmentFromApi(payload);
+          setData((d) => ({ ...d, assignments: upsertById(d.assignments, a) }));
+          if (session?.role === "student") toast("info", `Yangi vazifa: ${a.title || ""}`);
+        },
+      });
 
       /* ============================================================
          MULTI-TENANT ISOLATION (app-layer)
