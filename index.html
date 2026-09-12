@@ -2220,8 +2220,13 @@
     const SIDEBAR_W_OPEN = 248;
     const SIDEBAR_W_COLLAPSED = 76;
 
-    function Sidebar({ role, name, tabs, active, onChange, onLogout, notifCount, notifTabKey = "assignments", collapsed, setCollapsed, onSupportClick }) {
+    function Sidebar({ role, name, tabs, active, onChange, onLogout, notifCount, notifTabKey = "assignments", badges, collapsed, setCollapsed, onSupportClick }) {
       const w = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_OPEN;
+      // Har bir tab o'zining alohida badge sonini olishi uchun: `badges`
+      // ({tabKey: count}) berilgan bo'lsa o'shandan, aks holda eski
+      // bitta-tab (notifTabKey/notifCount) usulidan foydalaniladi — orqaga
+      // moslik saqlanadi (CEO/Admin/Support hali ham eski usulda ishlaydi).
+      const badgeCountFor = (key) => (badges ? (badges[key] || 0) : (key === notifTabKey ? (notifCount || 0) : 0));
       return (
         <div
           className="hidden md:flex md:sticky top-0 z-40 h-screen flex-col shrink-0 transition-[width] duration-200"
@@ -2249,31 +2254,34 @@
             )}
           </div>
           <div className={`flex-1 overflow-y-auto overflow-x-hidden ${collapsed ? "px-2" : "px-3"}`}>
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => onChange(t.key)}
-                title={collapsed ? t.label : undefined}
-                className={`w-full flex items-center rounded-lg text-[13.5px] font-medium mb-1 transition-colors relative ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"}`}
-                style={{
-                  backgroundColor: active === t.key ? "rgba(255,255,255,0.10)" : "transparent",
-                  color: active === t.key ? "#fff" : "rgba(255,255,255,0.62)",
-                }}
-              >
-                <span className="relative shrink-0">
-                  <Icon name={t.icon} size={17} />
-                  {collapsed && t.key === notifTabKey && notifCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full" style={{ backgroundColor: C.gold }} />
-                  )}
-                </span>
-                {!collapsed && <span className="whitespace-nowrap">{t.label}</span>}
-                {!collapsed && t.key === notifTabKey && notifCount > 0 && (
-                  <span className="ml-auto text-[10.5px] font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0" style={{ backgroundColor: C.gold, color: C.inkDeep }}>
-                    {notifCount}
+            {tabs.map((t) => {
+              const count = badgeCountFor(t.key);
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => onChange(t.key)}
+                  title={collapsed ? t.label : undefined}
+                  className={`w-full flex items-center rounded-lg text-[13.5px] font-medium mb-1 transition-colors relative ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"}`}
+                  style={{
+                    backgroundColor: active === t.key ? "rgba(255,255,255,0.10)" : "transparent",
+                    color: active === t.key ? "#fff" : "rgba(255,255,255,0.62)",
+                  }}
+                >
+                  <span className="relative shrink-0">
+                    <Icon name={t.icon} size={17} />
+                    {collapsed && count > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full" style={{ backgroundColor: C.gold }} />
+                    )}
                   </span>
-                )}
-              </button>
-            ))}
+                  {!collapsed && <span className="whitespace-nowrap">{t.label}</span>}
+                  {!collapsed && count > 0 && (
+                    <span className="ml-auto text-[10.5px] font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0" style={{ backgroundColor: C.gold, color: C.inkDeep }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <div className={`pb-5 pt-3 ${collapsed ? "px-2" : "px-3"}`} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
             <div className={`flex items-center mb-1 ${collapsed ? "justify-center py-2" : "gap-2.5 px-2 py-2"}`} title={collapsed ? name : undefined}>
@@ -2395,8 +2403,11 @@
        tasi to'g'ridan-to'g'ri chiqadi, qolganlari esa "Ko'proq" tugmasi bosilganda
        yuqoriga chiqadigan varaqchada (sheet) ko'rinadi. "Texnik xizmat" (Yordam)
        tugmasi ham shu hisoblashga bitta bo'lim sifatida qo'shiladi. */
-    function BottomNav({ tabs, active, onChange, notifTabKey, notifCount, onSupportClick }) {
+    function BottomNav({ tabs, active, onChange, notifTabKey, notifCount, badges, onSupportClick }) {
       const [moreOpen, setMoreOpen] = useState(false);
+      // Sidebar'dagi kabi: `badges` berilsa har bir tab o'z sonini oladi,
+      // aks holda eski bitta-tab (notifTabKey/notifCount) usuli ishlaydi.
+      const badgeCountFor = (key) => (badges ? (badges[key] || 0) : (key === notifTabKey ? (notifCount || 0) : 0));
       const visibleTabs = tabs.filter((t) => t.key !== "profile");
       const supportItem = onSupportClick ? { key: "__support", label: "Yordam", icon: "headset" } : null;
       const allItems = [...visibleTabs, ...(supportItem ? [supportItem] : [])];
@@ -2416,6 +2427,7 @@
       const renderItem = (t, keyPrefix = "") => {
         const isActive = active === t.key;
         const isSupport = t.key === "__support";
+        const count = isSupport ? 0 : badgeCountFor(t.key);
         return (
           <button
             key={keyPrefix + t.key}
@@ -2425,7 +2437,7 @@
           >
             <span className="relative">
               <Icon name={t.icon} size={17} />
-              {t.key === notifTabKey && notifCount > 0 && (
+              {count > 0 && (
                 <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: C.danger }} />
               )}
             </span>
@@ -2451,8 +2463,9 @@
                 className="overflow-hidden"
                 style={{ backgroundColor: C.inkFixed, borderTop: "1px solid rgba(255,255,255,0.08)" }}
               >
-                {moreItems.map((t) => {
+              {moreItems.map((t) => {
                   const isActive = active === t.key;
+                  const count = t.key === "__support" ? 0 : badgeCountFor(t.key);
                   return (
                     <button
                       key={t.key}
@@ -2462,14 +2475,14 @@
                     >
                       <span className="relative shrink-0">
                         <Icon name={t.icon} size={16} />
-                        {t.key === notifTabKey && notifCount > 0 && (
+                        {count > 0 && (
                           <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full" style={{ backgroundColor: C.gold }} />
                         )}
                       </span>
                       <span className="flex-1 text-left">{t.label}</span>
-                      {t.key === notifTabKey && notifCount > 0 && (
+                      {count > 0 && (
                         <span className="text-[10.5px] font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0" style={{ backgroundColor: C.gold, color: C.inkDeep }}>
-                          {notifCount}
+                          {count}
                         </span>
                       )}
                     </button>
@@ -2498,8 +2511,9 @@
       );
     }
 
-    function TopBar({ title, notifCount, notifications, onNotifClick, name, avatar, onGoProfile, onLogout, extra }) {
+    function TopBar({ title, notifCount, notifications, onNotifClick, onMarkAllRead, name, avatar, onGoProfile, onLogout, extra }) {
       const [open, setOpen] = useState(false);
+      const [markingAll, setMarkingAll] = useState(false);
       const ref = useRef(null);
 
       useEffect(() => {
@@ -2537,12 +2551,28 @@
                 )}
               </button>
               {open && (
-                <div
-                  className="absolute right-0 top-full mt-2 z-30 rounded-xl overflow-hidden shadow-2xl"
-                  style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, width: 320, maxWidth: "88vw" }}
-                >
-                  <div className="px-4 py-3 text-[13px] font-semibold" style={{ borderBottom: `1px solid ${C.borderSoft}`, color: C.ink }}>
-                    Bildirishnomalar {notifCount > 0 && <span style={{ color: C.mutedSoft, fontWeight: 500 }}>({notifCount})</span>}
+                <div className="absolute right-0 top-full mt-2 z-30 rounded-xl overflow-hidden shadow-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, width: 320, maxWidth: "88vw" }}>
+                <div className="px-4 py-3 flex items-center justify-between gap-2" style={{ borderBottom: `1px solid ${C.borderSoft}` }}>
+                    <span className="text-[13px] font-semibold" style={{ color: C.ink }}>Bildirishnomalar {notifCount > 0 && <span style={{ color: C.mutedSoft, fontWeight: 500 }}>({notifCount})</span>}
+                    </span>
+                    {onMarkAllRead && list.length > 0 && (
+                      <button
+                        disabled={markingAll}
+                        onClick={async () => {
+                          setMarkingAll(true);
+                          try {
+                            await onMarkAllRead();
+                            setOpen(false);
+                          } finally {
+                            setMarkingAll(false);
+                          }
+                        }}
+                        className="text-[11px] font-semibold shrink-0 disabled:opacity-50"
+                        style={{ color: C.gold }}
+                      >
+                        Barchasini o'qilgan deb belgilash
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {list.map((n) => (
@@ -6224,6 +6254,17 @@
         ...unseenExams.map((e) => ({ kind: "exam", id: e.id, icon: "book-open", title: `Yangi mock exam: ${e.title}`, subtitle: fmtDate(e.reopenedAt || e.createdAt), sortAt: e.reopenedAt || e.createdAt })),
       ].sort((a, b) => b.sortAt - a.sortAt);
 
+      const markAllNotificationsRead = async () => {
+        // Notifications bo'limidagi barcha yangi mock exam va vazifa
+        // bildirishnomalarini bir yo'la "ko'rilgan" deb belgilaydi — shu
+        // bilan bell'dagi unread badge (va Sidebar/BottomNav'dagi ikkala
+        // alohida badge — Mock exams va Vazifalarim) darhol yo'qoladi.
+        await Promise.all([
+          ...unseenExams.map((e) => actions.markExamNotifSeen(e.id, student.id)),
+          ...unseenAssignments.map((a) => actions.markAssignmentViewed(a.id, student.id)),
+        ]);
+      };
+
       const openAssignmentFromNotif = async (n) => {
         if (n.kind === "exam") {
           const e = myExamsForNotif.find((x) => x.id === n.id);
@@ -6275,13 +6316,14 @@
       return (
         <div className="flex min-h-screen" style={{ backgroundColor: C.paper }}>
           {FONTS}
-          <Sidebar role="student" name={student.name} tabs={tabs} active={tab} onChange={setTab} onLogout={onLogout} notifCount={unseenCount} notifTabKey="assignments" collapsed={collapsed} setCollapsed={setCollapsed} onSupportClick={() => setShowSupport(true)} />
+                    <Sidebar role="student" name={student.name} tabs={tabs} active={tab} onChange={setTab} onLogout={onLogout} badges={{ exams: unseenExams.length, assignments: unseenAssignments.length }} collapsed={collapsed} setCollapsed={setCollapsed} onSupportClick={() => setShowSupport(true)} />
           <div className="flex-1 min-w-0">
             <TopBar
               title={titles[tab]}
               notifCount={unseenCount}
               notifications={notifications}
               onNotifClick={openAssignmentFromNotif}
+              onMarkAllRead={markAllNotificationsRead}
               name={student.name}
               avatar={student.avatar}
               onGoProfile={() => setTab("profile")}
@@ -6307,7 +6349,7 @@
               {tab === "profile" && <StudentProfile student={student} group={group} actions={actions} onLogout={onLogout} />}
             </div>
           </div>
-          <BottomNav tabs={tabs} active={tab} onChange={setTab} notifTabKey="assignments" notifCount={unseenCount} onSupportClick={() => setShowSupport(true)} />
+          <BottomNav tabs={tabs} active={tab} onChange={setTab} badges={{ exams: unseenExams.length, assignments: unseenAssignments.length }} onSupportClick={() => setShowSupport(true)} />
           {viewAssignment && <AssignmentViewModal a={viewAssignment} onClose={() => setViewAssignment(null)} />}
           {showSupport && (
             <TechSupportModal
