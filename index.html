@@ -4480,7 +4480,7 @@
     // Full CEO / Support profile: editable personal info + avatar, password
     // change, a user-management list (students, always deletable; the other
     // admin account visible only from Support's side), and logout.
-    function AdminProfile({ session, user, myOrg, data, actions, toast, onLogout, onGoToStudents }) {
+    function AdminProfile({ session, user, myOrg, data, actions, toast, onLogout }) {
       const role = session.role; // "ceo" | "admin" | "manager" | "teacher"
       const roleLabel = ROLE_LABELS[role] || role;
       const isCeo = role === "ceo";
@@ -4541,14 +4541,6 @@
         }
       };
 
-      /* ---- foydalanuvchilar (o'quvchilar ro'yxati — tezkor o'chirish) ---- */
-      const [confirmDel, setConfirmDel] = useState(null);
-      const doDelete = async () => {
-        await actions.deleteStudent(confirmDel.id);
-        toast("success", "Foydalanuvchi o'chirildi");
-        setConfirmDel(null);
-      };
-
       return (
         <div className="max-w-3xl mx-auto space-y-5">
           {/* Shaxsiy ma'lumotlar */}
@@ -4601,35 +4593,12 @@
             </div>
           </Card>
 
-          {/* Foydalanuvchilar — faqat shu tashkilotning o'quvchilari (org-scoped data). */}
-          <Card>
-            <ProfileSectionHeader label="O'quvchilar" />
-            <div className="space-y-2 mb-3">
-              {data.students.map((s) => (
-                <UserRow key={s.id} name={s.name} sub={`@${s.username} · O'quvchi`} onDelete={() => setConfirmDel({ id: s.id, name: s.name })} />
-              ))}
-              {!data.students.length && (
-                <div className="text-[13px] text-center py-4" style={{ color: C.mutedSoft }}>Hozircha o'quvchilar yo'q</div>
-              )}
-            </div>
-            <Button variant="teal" icon="user-plus" onClick={onGoToStudents}>Yangi foydalanuvchi</Button>
-          </Card>
-
           {/* Tizimdan chiqish */}
           <Card>
             <ProfileSectionHeader label="Tizimdan chiqish" tone="danger" />
             <div className="text-[13px] mb-4" style={{ color: C.muted }}>Tizimdan chiqsangiz, qayta kirishda login va parol so'raladi.</div>
             <Button variant="danger" icon="right-from-bracket" onClick={onLogout}>Chiqish</Button>
           </Card>
-
-          {confirmDel && (
-            <ConfirmDialog
-              title="Foydalanuvchini o'chirish"
-              message={`"${confirmDel.name}" o'chirilsinmi? Bu amalni ortga qaytarib bo'lmaydi.`}
-              onConfirm={doDelete}
-              onCancel={() => setConfirmDel(null)}
-            />
-          )}
         </div>
       );
     }
@@ -4744,7 +4713,6 @@
                   actions={actions}
                   toast={toast}
                   onLogout={onLogout}
-                  onGoToStudents={() => setTab("students")}
                 />
               )}
             </div>
