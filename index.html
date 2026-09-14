@@ -2876,11 +2876,7 @@
             <Modal title="Yangi guruh yaratish" onClose={() => setShowNew(false)}>
               <div className="space-y-4">
                 <Input label="Guruh nomi" value={name} onChange={setName} placeholder="Masalan: IELTS-301" required />
-                <Select label="Daraja" value={level} onChange={setLevel} options={[
-                  { value: "Beginner", label: "Beginner" },
-                  { value: "Intermediate", label: "Intermediate" },
-                  { value: "Advanced", label: "Advanced" },
-                ]} />
+                <Input label="Daraja" value={level} onChange={setLevel} placeholder="Masalan: Beginner, Intermediate, IELTS 6.0..." />
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="ghost" onClick={() => setShowNew(false)}>Bekor qilish</Button>
                   <Button onClick={submit} loading={saving} icon="check">Yaratish</Button>
@@ -2893,11 +2889,7 @@
             <Modal title="Guruhni tahrirlash" onClose={() => setEditTarget(null)}>
               <div className="space-y-4">
                 <Input label="Guruh nomi" value={editName} onChange={setEditName} placeholder="Masalan: IELTS-301" required />
-                <Select label="Daraja" value={editLevel} onChange={setEditLevel} options={[
-                  { value: "Beginner", label: "Beginner" },
-                  { value: "Intermediate", label: "Intermediate" },
-                  { value: "Advanced", label: "Advanced" },
-                ]} />
+                <Input label="Daraja" value={editLevel} onChange={setEditLevel} placeholder="Masalan: Beginner, Intermediate, IELTS 6.0..." />
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="ghost" onClick={() => setEditTarget(null)}>Bekor qilish</Button>
                   <Button onClick={submitEdit} loading={editSaving} icon="check">Saqlash</Button>
@@ -3206,7 +3198,17 @@
     /* Har qanday bo'lim uchun (listening — part'lar bo'ylab yig'ilgan holda)
        savollarning yagona ro'yxatini qaytaradi — scoring, review, navigator uchun. */
     function flattenSectionQuestions(exam, key) {
-      if (key === "listening") return getListeningParts(exam.sections.listening).flatMap((p) => p.questions);
+      if (key === "listening") {
+        return getListeningParts(exam.sections.listening).flatMap((p) => {
+          if (!p.imageUrl || !p.questions.length) return p.questions;
+          // "Rasmli" part — part darajasidagi rasm (masalan xarita/diagramma) shu
+          // partning birinchi savoliga bog'lanadi, shunda MCQBlock buni oddiy savol
+          // rasmi kabi (bir marta, part boshida) ko'rsatadi — alohida render logikasi
+          // shart emas. Savolning o'zida allaqachon rasm bo'lsa, unga tegilmaydi.
+          const [first, ...rest] = p.questions;
+          return [first.imageUrl ? first : { ...first, imageUrl: p.imageUrl, imageName: p.imageName, imageMime: p.imageMime }, ...rest];
+        });
+      }
       return exam.sections[key]?.questions || [];
     }
 
@@ -3423,6 +3425,10 @@
       const renamePart = (partId, val) => setSections((s) => ({ ...s, listening: { ...s.listening, parts: s.listening.parts.map((p) => (p.id === partId ? { ...p, title: val } : p)) } }));
       /* Partning javob turi — "mcq" (variantli/ABC) yoki "text" (matnli/bo'sh joyli). Bir marta tanlanadi. */
       const setPartMode = (partId, mode) => setSections((s) => ({ ...s, listening: { ...s.listening, parts: s.listening.parts.map((p) => (p.id === partId ? { ...p, mode } : p)) } }));
+      /* "Rasmli" part turi uchun — butun part bitta umumiy rasmga (masalan xarita/
+         diagramma) tegishli bo'ladi, pastidagi savollar esa shu rasmga qarab javoblanadi
+         (IELTS Listening'dagi "label the map"/"label the plan" turidagi qismlar kabi). */
+      const setPartImage = (partId, url, name, mime) => setSections((s) => ({ ...s, listening: { ...s.listening, parts: s.listening.parts.map((p) => (p.id === partId ? { ...p, imageUrl: url, imageName: name, imageMime: mime } : p)) } }));
 
       /* Savollarni sectionKey (va listening uchun partId) bo'yicha umumiy tarzda yangilash */
       const updateQuestions = (sectionKey, updater, partId) => {
@@ -3546,6 +3552,7 @@
                   <Button size="sm" variant="subtle" icon="list-check" onClick={() => setPartMode(partId, "mcq")}>Variantli (ABC)</Button>
                   <Button size="sm" variant="subtle" icon="square-check" onClick={() => setPartMode(partId, "multi")}>Bir nechta javobli</Button>
                   <Button size="sm" variant="subtle" icon="pen" onClick={() => setPartMode(partId, "text")}>Matnli (bo'sh joylar)</Button>
+                  <Button size="sm" variant="subtle" icon="image" onClick={() => setPartMode(partId, "image")}>Rasmli</Button>
                 </div>
               </div>
             );
@@ -3565,11 +3572,27 @@
               />
             );
           }
-          // partMode === "mcq" yoki "multi" bo'lsa, pastdagi umumiy (variantli savollar qo'shish) UI davom etadi.
+          // partMode === "mcq"/"multi"/"image" bo'lsa, pastdagi umumiy (variantli savollar
+          // qo'shish) UI davom etadi — "image" uchun avval part rasmi ko'rsatiladi (pastda).
         }
+
+        /* "Rasmli" part — rasm tanlangach ("rasm qo'yiladi, xolos"), pastida oddiy
+           variantli (mcq) savollar shu rasmga tegishli bo'lib qo'shiladi. */
+        const partImageBlock = (part && partMode === "image") ? (
+          <div className="rounded-lg p-3" style={{ backgroundColor: C.paperDim }}>
+            <div className="text-[12.5px] font-semibold mb-2" style={{ color: C.text }}>Part rasmi (masalan xarita/diagramma) — pastdagi savollar shu rasmga tegishli</div>
+            <QuestionImageField
+              imageUrl={part.imageUrl}
+              imageName={part.imageName}
+              imageMime={part.imageMime}
+              onChange={(url, name, mime) => setPartImage(partId, url, name, mime)}
+            />
+          </div>
+        ) : null;
 
         return (
           <div className="space-y-2">
+            {partImageBlock}
             {questions.map((q, i) => (
               <div key={q.id} className="rounded-lg p-3" style={{ backgroundColor: C.paperDim }}>
                 <div className="flex items-start justify-between gap-2">
