@@ -1699,19 +1699,19 @@
       );
     }
 
-    function Modal({ title, onClose, children, width = "560px" }) {
+    function Modal({ title, onClose, children, width = "760px" }) {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4" style={{ backgroundColor: C.overlay }} onClick={onClose}>
           <div
             className="w-full rounded-2xl shadow-2xl flex flex-col"
-            style={{ backgroundColor: C.card, maxWidth: `min(${width}, 96vw)`, maxHeight: "min(90vh, 900px)" }}
+            style={{ backgroundColor: C.card, maxWidth: `min(${width}, 96vw)`, maxHeight: "min(92vh, 940px)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 shrink-0" style={{ backgroundColor: C.card, borderBottom: `1px solid ${C.borderSoft}` }}>
-              <h3 className="f-display font-semibold text-[16.5px] sm:text-[18px]" style={{ color: C.ink }}>{title}</h3>
+            <div className="flex items-center justify-between px-5 sm:px-7 py-4 sm:py-5 shrink-0" style={{ backgroundColor: C.card, borderBottom: `1px solid ${C.borderSoft}` }}>
+              <h3 className="f-display font-semibold text-[17.5px] sm:text-[20px]" style={{ color: C.ink }}>{title}</h3>
               <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/5 shrink-0"><Icon name="xmark" size={18} style={{ color: C.muted }} /></button>
             </div>
-            <div className="p-4 sm:p-6 overflow-y-auto min-h-0">{children}</div>
+            <div className="p-5 sm:p-7 overflow-y-auto min-h-0">{children}</div>
           </div>
         </div>
       );
@@ -4115,7 +4115,7 @@
           )}
 
           {reviewTarget && (
-            <Modal title="Writing — baholash" onClose={() => setReviewTarget(null)} width="640px">
+            <Modal title="Writing — baholash" onClose={() => setReviewTarget(null)} width="760px">
               <WritingReview result={reviewTarget} onSave={async (payload) => { await actions.gradeWriting(reviewTarget.id, payload); setReviewTarget(null); toast("success", "Baho saqlandi"); }} />
             </Modal>
           )}
@@ -4378,7 +4378,7 @@
           </div>
 
           {showNew && (
-            <Modal title="Yangi vazifa yuborish" onClose={() => setShowNew(false)} width="600px">
+            <Modal title="Yangi vazifa yuborish" onClose={() => setShowNew(false)} width="720px">
               <AssignmentForm
                 groups={groups} students={students} toast={toast}
                 onCancel={() => setShowNew(false)}
@@ -4388,7 +4388,7 @@
           )}
 
           {editTarget && (
-            <Modal title="Vazifani tahrirlash" onClose={() => setEditTarget(null)} width="600px">
+            <Modal title="Vazifani tahrirlash" onClose={() => setEditTarget(null)} width="720px">
               <AssignmentForm
                 groups={groups} students={students} toast={toast}
                 initialAssignment={editTarget}
@@ -4761,7 +4761,7 @@
       };
 
       return (
-        <Modal title="Xodim / O'quvchiga xabar yuborish" onClose={onClose} width="560px">
+        <Modal title="Xodim / O'quvchiga xabar yuborish" onClose={onClose} width="680px">
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -6582,7 +6582,7 @@
       };
 
       return (
-        <Modal title="CEO'ga xabar yuborish" onClose={onClose} width="560px">
+        <Modal title="CEO'ga xabar yuborish" onClose={onClose} width="680px">
           <div className="space-y-4">
             <div className="flex gap-2">
               <button
