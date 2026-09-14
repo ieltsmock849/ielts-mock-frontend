@@ -527,6 +527,7 @@
         username: o.username,
         password: o.password || "",
         telegramChatId: o.telegram_chat_id || "",
+        avatar: o.avatar || "",
         status: o.status,
         createdAt: o.created_at,
       };
@@ -556,6 +557,11 @@
       if (patch.email !== undefined) body.email = patch.email;
       if (patch.username !== undefined) body.username = patch.username;
       if (patch.telegramChatId !== undefined) body.telegram_chat_id = patch.telegramChatId;
+      // MUHIM: "avatar" shu yerda yo'q edi — shu sabab CEO rasm tanlaganda
+      // "rasm yuklandi" degan (muvaffaqiyatli) xabar chiqsa-da, PATCH so'rovi
+      // rasmni umuman yubormas edi, backend hech narsani saqlamas edi va
+      // rasm hech qayerda (sidebar/topbar/profil) ko'rinmas edi.
+      if (patch.avatar !== undefined) body.avatar = patch.avatar;
       if (patch.status !== undefined) body.status = patch.status;
       if (patch.password) body.password = patch.password;
       return body;
