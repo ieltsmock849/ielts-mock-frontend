@@ -5574,8 +5574,19 @@
              keyingi safar shu examga kirilsa yangi urinish boshlanadi. */
           await examApi.submit(exam.id, buildProgressPayload());
         } catch (e) { /* natija baribir saqlanaveradi — kritik emas */ }
-        await onSubmit(result);
+
+        /* MUHIM: onSubmit endi true/false qaytaradi. Agar natija backend'ga
+           saqlanmasa (masalan server vaqtincha ishlamay qolsa — 502/xatolik),
+           foydalanuvchini imtihondan CHIQARIB YUBORMAYMIZ — aks holda uning
+           natijasi butunlay yo'qolib qolardi va qayta topshirish imkoni
+           bo'lmasdi. Buning o'rniga aniq xato ko'rsatib, "Qayta urinish"
+           imkonini qoldiramiz; javoblar hali xotirada, hech narsa yo'qolmaydi. */
+        const ok = await onSubmit(result);
         setSubmitting(false);
+        if (ok === false) {
+          toast("error", "Natija saqlanmadi — internet/server bilan muammo. Qaytadan urinib ko'ring.");
+          return;
+        }
         toast("success", "Mock exam topshirildi!");
         onExit();
       };
@@ -6417,14 +6428,22 @@
             exam={activeExam} student={student} toast={toast}
             onExit={() => setActiveExam(null)}
             onSubmit={async (result) => {
-              await actions.addResult(result);
+              /* MUHIM: addResult true/false qaytaradi (backend so'rovi
+                 muvaffaqiyatli bo'lganda true). Bu qiymat oldin tekshirilmasdi
+                 — natija saqlanmasa ham (masalan server vaqtincha 502/500
+                 qaytarsa) dastur "natija" bo'limiga o'tkazib yuborardi va
+                 foydalanuvchi hech narsa saqlanmaganini bilmasdi qolardi,
+                 shu bilan birga Telegram'ga xabar ham hech qachon ketmasdi
+                 (chunki u backend'da ExamResult yaratilgandagina, signal
+                 orqali yuboriladi). Endi: muvaffaqiyatsiz bo'lsa "results"
+                 tabga o'tkazilmaydi — ExamRunner qayta urinib ko'rish imkonini
+                 beradi (pastdagi ExamRunner.submit() o'zgarishiga qarang). */
+              const ok = await actions.addResult(result);
+              if (!ok) return false;
               /* Mock tugagach, natija avtomatik ravishda "Natijalar" bo'limida ochilsin. */
               setJustFinishedResultId(result.id);
               setTab("results");
-              /* Writing bo'limi bo'lsa — bot orqali CEO'ga Telegram xabari yuboriladi. */
-              if (result.writingStatus === "pending_review") {
-                sendWritingToCeo({ org: myOrg, student, exam: activeExam, result });
-              }
+              return true;
             }}
           />
         );
