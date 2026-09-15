@@ -6340,16 +6340,22 @@
         let cancelled = false;
         (async () => {
           const candidates = data.exams.filter((e) => e.status === "on" && e.assignedGroupIds.includes(student.groupId));
-          for (const ex of candidates) {
-            try {
-              const progress = await examApi.getProgress(ex.id);
-              if (cancelled) return;
-              if (progress) {
-                setActiveExam(ex);
-                toast("success", "Tugallanmagan mock exam davom ettirilmoqda — javoblaringiz saqlangan.");
-                return;
-              }
-            } catch (e) { /* davom etayotgan urinish yo'q — jim o'tkazamiz */ }
+          /* PERFORMANCE: avval har bir exam uchun so'rov KETMA-KET (for...of
+             ichida await) yuborilardi — N ta tayinlangan exam bo'lsa, N marta
+             network round-trip birin-ketin kutilardi (dashboard ochilishini
+             sekinlashtiradi). Endi barchasi PARALLEL yuboriladi — natija
+             ANIQ AVVALGIDEK: ro'yxatdagi (candidates tartibidagi) BIRINCHI
+             mos (tugallanmagan urinishi bor) exam tanlanadi, faqat umumiy
+             kutish vaqti N marta emas, bitta round-trip vaqtiga qisqaradi. */
+          const settled = await Promise.allSettled(candidates.map((ex) => examApi.getProgress(ex.id)));
+          if (cancelled) return;
+          for (let i = 0; i < candidates.length; i++) {
+            const result = settled[i];
+            if (result.status === "fulfilled" && result.value) {
+              setActiveExam(candidates[i]);
+              toast("success", "Tugallanmagan mock exam davom ettirilmoqda — javoblaringiz saqlangan.");
+              return;
+            }
           }
         })();
         return () => { cancelled = true; };
@@ -7401,16 +7407,52 @@
         refreshData(false);
       }, [session?.role, session?.orgId]); // eslint-disable-line
 
-      /* Fon jarayonida davriy yangilanish (polling) — o'qituvchi/CEO/support
-         yangi xabar, vazifa yoki mock yuborganda, qabul qiluvchi tomon
-         sahifani qo'lda yangilamasa ham bir necha soniya ichida ko'rinishi
-         uchun. Hozircha backend'da WebSocket/Channels infratuzilmasi yo'q,
-         shu sabab eng oddiy va ishonchli yechim — har 15 soniyada jimgina
-         qayta so'rash ("ready"ni o'zgartirmasdan, ekran miltillamasin). */
+      /* PERFORMANCE: fon jarayonidagi davriy yangilanish (polling) endi FAQAT
+         "messages"/"tickets"ni QAYTA SO'RAMAYDI — bu ikkalasi allaqachon
+         WebSocket orqali TO'LIQ (bo'sh joysiz) yangilanadi: xabar yuborilishi
+         (new_message), javob berilishi (message_status_updated), murojaat
+         yaratilishi (new_support_ticket) va "ko'rildi" belgilanishi
+         (ticket_seen) — barchasi useRealtime handler'lari orqali state'ga
+         to'g'ridan-to'g'ri yoziladi (pastga q.: upsertById chaqiruvlari).
+         Demak har 15 soniyada ularni yana backend'dan so'rash real hech
+         qanday yangi ma'lumot bermas edi — shunchaki ortiqcha (duplicate)
+         so'rov va DB query edi. "groups"/"students"/"exams"/"assignments"/
+         "results"/"staff" uchun esa hali WebSocket eventi yo'q (masalan
+         mavjud exam/assignment TAHRIRLANSA, faqat yaratilganda/yoqilganda
+         push bo'ladi) — shu sabab ular oldingidek 15 soniyada bir jimgina
+         yangilanishda qoladi, xatti-harakat (foydalanuvchi ko'radigan
+         natija) o'zgarmaydi. */
+      const refreshVolatilePolledData = async () => {
+        try {
+          const isSupport = session.role === "support";
+          const [groups, students, exams, assignments, results, staff] = await Promise.all([
+            groupApi.list().catch(() => []),
+            studentApi.list().catch(() => []),
+            examApi.list().catch(() => []),
+            assignmentApi.list().catch(() => []),
+            resultApi.list().catch(() => []),
+            staffApi.list().catch(() => []),
+          ]);
+          setData({ groups, students, exams, assignments, results });
+          setOrgStaff(staff);
+          if (isSupport) {
+            try { setOrganizations(await orgApi.list()); } catch (e) { }
+          }
+        } catch (e) { /* fon jarayonidagi xatolik jim o'tkaziladi — asosiy yuklash (refreshData) baribir xato ko'rsatadi */ }
+      };
+
+      /* Fon jarayonida davriy yangilanish (polling) — guruh/o'quvchi/xodim/
+         natija kabi hali real-time'ga ulanmagan ma'lumotlar uchun (yuqoridagi
+         izohga q.), qabul qiluvchi tomon sahifani qo'lda yangilamasa ham bir
+         necha soniya ichida ko'rinishi uchun — "ready"ni o'zgartirmasdan,
+         ekran miltillamasin. */
       useEffect(() => {
         if (!session) return;
         const interval = setInterval(() => {
-          refreshData(true);
+          refreshVolatilePolledData();
+          // "unread" — yengil (bitta xabar) so'rov, o'zgarishsiz qoldirildi:
+          // WebSocket vaqtincha uzilib qolgan holatlarda ham (masalan tarmoq
+          // qisqa uzilishi) hali javobsiz xabar borligini tiklab beradi.
           messageApi.unread().then(setUnreadMsg).catch(() => {});
         }, 15000);
         return () => clearInterval(interval);
