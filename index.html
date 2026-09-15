@@ -5592,6 +5592,11 @@
           /* Attempt'ni backend'da "submitted" deb belgilaymiz — shu bilan
              keyingi safar shu examga kirilsa yangi urinish boshlanadi. */
           await examApi.submit(exam.id, buildProgressPayload());
+          /* Urinish backendda endi "submitted" — shundan keyingi har qanday
+             save_progress chaqiruvi baribir 404 qaytaradi (kutilgan holat).
+             Bayroqni shu yerda qo'yamiz, shunda komponent chiqishda (unmount)
+             keraksiz so'rov yubormaydi. */
+          submittedRef.current = true;
         } catch (e) { /* natija baribir saqlanaveradi — kritik emas */ }
 
         /* MUHIM: onSubmit endi true/false qaytaradi. Agar natija backend'ga
@@ -5655,9 +5660,16 @@
          (endgame) so'nggi holat darhol yuboriladi. */
       const saveTimerRef = useRef(null);
       const latestStateRef = useRef(null);
+      /* Imtihon "Yakunlash" orqali muvaffaqiyatli topshirilgach true bo'ladi.
+         Shundan keyin backend'dagi urinish (ExamAttempt) statusi endi
+         "in_progress" emas ("submitted"), shuning uchun keyingi har qanday
+         save_progress chaqiruvi baribir 404 qaytaradi (kutilgan, zararsiz,
+         lekin konsolda keraksiz shovqin qiladi) — shu bayroq bilan bunday
+         keraksiz so'rov chiqarib tashlanadi. */
+      const submittedRef = useRef(false);
       latestStateRef.current = buildProgressPayload();
       useEffect(() => {
-        if (!loaded) return;
+        if (!loaded || submittedRef.current) return;
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
           examApi.saveProgress(exam.id, latestStateRef.current).catch(() => { });
@@ -5669,7 +5681,7 @@
          yuboramiz — aks holda oxirgi 1.2 soniyadagi o'zgarish yo'qolib qolishi mumkin. */
       useEffect(() => {
         return () => {
-          if (loaded && latestStateRef.current) {
+          if (loaded && !submittedRef.current && latestStateRef.current) {
             examApi.saveProgress(exam.id, latestStateRef.current).catch(() => { });
           }
         };
