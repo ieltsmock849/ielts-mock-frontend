@@ -7378,13 +7378,14 @@
         if (!silent) setReady(false);
         try {
           const isSupport = session.role === "support";
+          const canSeeStaff = ["support", "ceo", "admin"].includes(session.role);
           const [groups, students, exams, assignments, results, staff, tickets, msgs] = await Promise.all([
             groupApi.list().catch(() => []),
             studentApi.list().catch(() => []),
             examApi.list().catch(() => []),
             assignmentApi.list().catch(() => []),
             resultApi.list().catch(() => []),
-            staffApi.list().catch(() => []),
+            canSeeStaff ? staffApi.list().catch(() => []) : Promise.resolve([]),
             ticketApi.list().catch(() => []),
             messageApi.list().catch(() => []),
           ]);
@@ -7425,13 +7426,14 @@
       const refreshVolatilePolledData = async () => {
         try {
           const isSupport = session.role === "support";
+          const canSeeStaff = ["support", "ceo", "admin"].includes(session.role);
           const [groups, students, exams, assignments, results, staff] = await Promise.all([
             groupApi.list().catch(() => []),
             studentApi.list().catch(() => []),
             examApi.list().catch(() => []),
             assignmentApi.list().catch(() => []),
             resultApi.list().catch(() => []),
-            staffApi.list().catch(() => []),
+            canSeeStaff ? staffApi.list().catch(() => []) : Promise.resolve([]),
           ]);
           setData({ groups, students, exams, assignments, results });
           setOrgStaff(staff);
