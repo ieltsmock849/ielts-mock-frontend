@@ -7379,11 +7379,18 @@
         try {
           const isSupport = session.role === "support";
           const canSeeStaff = ["support", "ceo", "admin"].includes(session.role);
-          const [groups, students, exams, assignments, results, staff, tickets, msgs] = await Promise.all([
+          // Barcha so'rovlarni BIR ZUMDA (8 tasi birdaniga) emas, ikki kichik
+          // bosqichda yuborish — login paytidagi cho'qqi yukni (va shu bilan
+          // bog'liq server tomonidagi bir zumlik ortiqcha bosim/502 xavfini)
+          // kamaytiradi. Yakuniy natija avvalgidek — faqat so'rovlar ikki
+          // guruhga bo'lib yuboriladi.
+          const [groups, students, exams, assignments] = await Promise.all([
             groupApi.list().catch(() => []),
             studentApi.list().catch(() => []),
             examApi.list().catch(() => []),
             assignmentApi.list().catch(() => []),
+          ]);
+          const [results, staff, tickets, msgs] = await Promise.all([
             resultApi.list().catch(() => []),
             canSeeStaff ? staffApi.list().catch(() => []) : Promise.resolve([]),
             ticketApi.list().catch(() => []),
@@ -7427,9 +7434,11 @@
         try {
           const isSupport = session.role === "support";
           const canSeeStaff = ["support", "ceo", "admin"].includes(session.role);
-          const [groups, students, exams, assignments, results, staff] = await Promise.all([
+          const [groups, students] = await Promise.all([
             groupApi.list().catch(() => []),
             studentApi.list().catch(() => []),
+          ]);
+          const [exams, assignments, results, staff] = await Promise.all([
             examApi.list().catch(() => []),
             assignmentApi.list().catch(() => []),
             resultApi.list().catch(() => []),
