@@ -879,7 +879,14 @@
          edi — endi ExamAttempt orqali backend'da) ---- */
       start: async (id) => {
         const json = await apiFetch(`/api/exams/${id}/start/`);
-        return json.data;
+        /* MUHIM TUZATISH: backend {attempt: {...}, exam: {...}} qaytaradi,
+           lekin bu yerda oldin butun json.data (ya'ni {attempt, exam})
+           to'g'ridan-to'g'ri "attempt" sifatida ishlatilardi — shu sabab
+           a.id, a.answers, a.writing_text kabi maydonlar HAMISHA undefined
+           bo'lgan va "davom ettirish" (resume) funksiyasi aslida hech qachon
+           ishlamagan (har safar bo'sh holatdan boshlangan). Endi to'g'ri
+           obyekt (attempt) qaytariladi. */
+        return json.data.attempt;
       },
       getProgress: async (id) => {
         try {
@@ -5446,7 +5453,7 @@
 
       useEffect(() => {
         let cancelled = false;
-        (async () => {
+        const load = async () => {
           try {
             const a = await examApi.start(exam.id);
             if (cancelled) return;
@@ -5459,12 +5466,24 @@
             setNotepadText(a.notepad_text || "");
             setFontLevel(a.font_level != null ? a.font_level : 1);
             setSectionDeadlines(a.section_deadlines || {});
+            setLoaded(true);
           } catch (e) {
-            toast("error", "Imtihon holati yuklanmadi — internetni tekshiring");
-          } finally {
-            if (!cancelled) setLoaded(true);
+            if (cancelled) return;
+            /* MUHIM TUZATISH: oldin bu yerda xato bo'lsa ham setLoaded(true)
+               chaqirilardi ("finally" bloki orqali) — natijada imtihon
+               backend'da HECH QANDAY ExamAttempt yaratilmagan holda
+               "boshlangan" deb hisoblanardi, va shundan keyingi har bir
+               avtomatik saqlash (save_progress) chaqiruvi 404 bilan
+               qaytardi (chunki saqlanadigan urinish backendda mavjud emas).
+               Endi: muvaffaqiyatsiz bo'lsa "loaded" true qilinmaydi —
+               foydalanuvchiga xato ko'rsatiladi va 2 soniyadan keyin
+               avtomatik qayta urinib ko'riladi, internet/server tiklangach
+               imtihon normal boshlanadi. */
+            toast("error", "Imtihon holati yuklanmadi — qaytadan urinilmoqda...");
+            setTimeout(() => { if (!cancelled) load(); }, 2000);
           }
-        })();
+        };
+        load();
         return () => { cancelled = true; };
       }, [exam.id]); // eslint-disable-line
 
